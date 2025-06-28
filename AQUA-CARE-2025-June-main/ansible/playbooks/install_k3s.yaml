@@ -1,0 +1,76 @@
+---
+- name: Install k3s and configure kubeconfig
+  hosts: all
+  become: yes
+  gather_facts: false
+  tasks:
+    - name: Install k3s using official script
+      shell: curl -sfL https://get.k3s.io | sh -
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: Ensure .k3s directory exists in home
+      become: false
+      file:
+        path: "/home/ubuntu/.k3s"
+        state: directory
+        mode: '0755'
+
+    - name: Copy k3s.yaml to user's .k3s directory
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "/home/ubuntu/.k3s/k3s.yaml"
+        remote_src: yes
+        owner: "ubuntu"
+        group: "ubuntu"
+        mode: '0644'
+
+    - name: Set KUBECONFIG environment variable in .bashrc
+      lineinfile:
+        path: "/home/ubuntu/.bashrc"
+        line: 'export KUBECONFIG=$HOME/.k3s/k3s.yaml'
+        state: present
+      become: no
+
+    - name: Enable kubectl autocompletion in .bashrc
+      lineinfile:
+        path: "/home/ubuntu/.bashrc"
+        line: 'source <(kubectl completion bash)'
+        state: present
+      become: no
+
+    - name: Add kubectl alias to .bashrc
+      lineinfile:
+        path: "/home/ubuntu/.bashrc"
+        line: 'alias k=kubectl'
+        state: present
+      become: no
+
+    - name: Add kubectl completion for alias k to .bashrc
+      lineinfile:
+        path: "/home/ubuntu/.bashrc"
+        line: 'complete -F __start_kubectl k'
+        state: present
+      become: no
+
+    - name: Display all pods in all namespaces
+      shell: kubectl get pod -A
+      environment:
+        KUBECONFIG: "/home/ubuntu/.k3s/k3s.yaml"
+      register: pods_output
+      changed_when: false
+
+    - name: Install Helm using official script
+      shell: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      args:
+        creates: /usr/local/bin/helm
+
+    - name: Add elastic Helm repo
+      shell: helm repo add elastic https://helm.elastic.co
+      args:
+        creates: /home/ubuntu/.cache/helm/repository/elastic-index.yaml
+      become: false
+
+    - name: Update Helm repos
+      shell: helm repo update
+      become: false
