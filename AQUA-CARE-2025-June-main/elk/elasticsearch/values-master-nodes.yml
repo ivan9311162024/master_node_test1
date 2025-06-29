@@ -49,8 +49,18 @@ esConfig:
 # 憑證設定
 createCert: true
 
-# JVM 設定
+# 映像檔設定
+image: "docker.elastic.co/elasticsearch/elasticsearch"
+imageTag: "8.5.1"
+imagePullPolicy: "IfNotPresent"
+
+# JVM 設定 (heap 1g，總記憶體 2Gi，留 1g 給系統)
 esJavaOpts: "-Xmx1g -Xms1g"
+
+# 密碼設定
+secret:
+  enabled: true
+  password: "elastic"
 
 # 資源配置 (根據 TWCC 環境調整)
 resources:
@@ -85,9 +95,37 @@ podAnnotations:
   
 # 服務配置
 service:
+  enabled: true
   type: ClusterIP
   httpPort: 9200
   transportPort: 9300
+
+# 安全上下文
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# 健康檢查
+readinessProbe:
+  failureThreshold: 3
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  successThreshold: 3
+  timeoutSeconds: 5
+
+# 系統設定
+sysctlVmMaxMapCount: 262144
+terminationGracePeriod: 120
+
+# 叢集健康檢查參數
+clusterHealthCheckParams: "wait_for_status=green&timeout=1s"
   
 # 入口配置
 ingress:
