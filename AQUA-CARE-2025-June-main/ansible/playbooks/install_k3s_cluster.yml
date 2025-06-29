@@ -7,7 +7,7 @@
     ansible_user: ubuntu
   tasks:
     - name: 安裝 K3s master
-      shell: curl -sfL https://get.k3s.io | sh -
+      shell: curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--tls-san {{ ansible_host }}" sh -
       args:
         creates: /usr/local/bin/k3s
 
@@ -94,12 +94,35 @@
   become: true
   gather_facts: false
   vars:
-    k3s_url: "https://{{ hostvars[groups['k3s_master'][0]].ansible_host }}:6443"
+    k3s_url: "https://{{ hostvars['k3s_master'].ansible_host }}:6443"
   tasks:
+    - name: 🔍 顯示 master IP 與 token
+      debug:
+        msg: "URL: {{ k3s_url }}, Token: {{ hostvars['k3s_master'].k3s_token }}"
+
     - name: 設定 agent 用的 K3S_TOKEN
       set_fact:
         k3s_token: "{{ hostvars['k3s_master'].k3s_token }}"
 
+    - name: Debug 檢查變數
+      debug:
+        msg: "Connecting to {{ k3s_url }} using token {{ k3s_token }}"
+
     - name: 安裝 K3s agent 並加入 master
       shell: |
         curl -sfL https://get.k3s.io | K3S_URL={{ k3s_url }} K3S_TOKEN={{ k3s_token }} sh -
+      register: install_output
+      changed_when: true
+
+    - name: 顯示 worker 安裝輸出
+      debug:
+        var: install_output.stdout_lines
+
+    - name: 顯示 k3s-agent 服務最近日誌
+      shell: journalctl -u k3s-agent --no-pager -n 20
+      register: agent_logs
+      changed_when: false
+
+    - name: 輸出日誌
+      debug:
+        var: agent_logs.stdout_lines
