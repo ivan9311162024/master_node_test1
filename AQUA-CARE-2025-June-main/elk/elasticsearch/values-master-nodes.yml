@@ -1,0 +1,98 @@
+# 基於您的專案環境修正的 Elasticsearch 多節點配置
+# 適用於 Helm chart 部署方式
+
+---
+# 主要叢集配置
+clusterName: "twcc-cluster"
+nodeGroup: "master"
+
+# Master 服務設定
+masterService: "twcc-cluster-master"
+
+# 節點角色配置 - Master 節點同時處理 master 和 ingest
+roles:
+  - master
+  - ingest
+  - remote_cluster_client
+
+# Master 節點數量 (基於您的 elk_master 群組)
+replicas: 2
+minimumMasterNodes: 1
+
+# Elasticsearch 版本
+esMajorVersion: "8"
+
+# 叢集配置
+esConfig:
+  elasticsearch.yml: |
+    cluster.name: "twcc-cluster"
+    cluster.initial_master_nodes:
+      - "twcc-cluster-master-0"
+      - "twcc-cluster-master-1"
+    discovery.seed_hosts: []
+    node.name: "${HOSTNAME}"
+    network.host: 0.0.0.0
+    http.port: 9200
+    transport.port: 9300
+    
+    # 效能調整
+    bootstrap.memory_lock: false
+    indices.memory.index_buffer_size: 30%
+    
+    # 安全設定
+    xpack.security.enabled: true
+    xpack.security.transport.ssl.enabled: true
+    xpack.security.transport.ssl.verification_mode: certificate
+    xpack.security.transport.ssl.keystore.path: /usr/share/elasticsearch/config/certs/elastic-certificates.p12
+    xpack.security.transport.ssl.truststore.path: /usr/share/elasticsearch/config/certs/elastic-certificates.p12
+
+# 憑證設定
+createCert: true
+
+# JVM 設定
+esJavaOpts: "-Xmx1g -Xms1g"
+
+# 資源配置 (根據 TWCC 環境調整)
+resources:
+  requests:
+    cpu: "1000m"
+    memory: "2Gi"
+  limits:
+    cpu: "2000m"
+    memory: "2Gi"
+
+# 儲存配置
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+
+# Pod 反親和性 - 確保 Master 節點分散部署
+antiAffinity: "hard"
+
+# 節點選擇器 - 部署到 elk_master 群組節點
+nodeSelector:
+  elk-role: "master"
+
+# 容忍度設定
+tolerations: []
+
+# Pod 註解
+podAnnotations:
+  cluster-role: "master"
+  
+# 服務配置
+service:
+  type: ClusterIP
+  httpPort: 9200
+  transportPort: 9300
+  
+# 入口配置
+ingress:
+  enabled: false
+
+# 監控配置
+monitoring:
+  enabled: true

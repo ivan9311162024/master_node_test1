@@ -1,0 +1,105 @@
+---
+- name: 🟢 安裝 K3s master 並準備 kubeconfig 與 Helm
+  hosts: k3s_master
+  become: true
+  gather_facts: false
+  vars:
+    ansible_user: ubuntu
+  tasks:
+    - name: 安裝 K3s master
+      shell: curl -sfL https://get.k3s.io | sh -
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: 讀取 node-token
+      shell: cat /var/lib/rancher/k3s/server/node-token
+      register: node_token
+
+    - name: 設定 token fact 給 agent 使用
+      add_host:
+        name: k3s_master
+        ansible_host: "{{ inventory_hostname }}"
+        k3s_token: "{{ node_token.stdout }}"
+        ansible_user: "{{ ansible_user }}"
+        ansible_ssh_private_key_file: "{{ ansible_ssh_private_key_file | default(omit) }}"
+
+    - name: 建立 ~/.k3s 目錄
+      become: false
+      file:
+        path: "/home/{{ ansible_user }}/.k3s"
+        state: directory
+        mode: "0755"
+
+    - name: 複製 kubeconfig 到使用者目錄
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "/home/{{ ansible_user }}/.k3s/k3s.yaml"
+        remote_src: yes
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0644"
+
+    - name: 設定 KUBECONFIG 環境變數
+      lineinfile:
+        path: "/home/{{ ansible_user }}/.bashrc"
+        line: "export KUBECONFIG=$HOME/.k3s/k3s.yaml"
+        state: present
+      become: false
+
+    - name: 加入 kubectl 自動補完
+      lineinfile:
+        path: "/home/{{ ansible_user }}/.bashrc"
+        line: "source <(kubectl completion bash)"
+        state: present
+      become: false
+
+    - name: 加入 kubectl alias 為 k
+      lineinfile:
+        path: "/home/{{ ansible_user }}/.bashrc"
+        line: "alias k=kubectl"
+        state: present
+      become: false
+
+    - name: 加入 alias 自動補完
+      lineinfile:
+        path: "/home/{{ ansible_user }}/.bashrc"
+        line: "complete -F __start_kubectl k"
+        state: present
+      become: false
+
+    - name: 顯示所有 Pod 狀態
+      shell: kubectl get pod -A
+      environment:
+        KUBECONFIG: "/home/{{ ansible_user }}/.k3s/k3s.yaml"
+      register: pods_output
+      changed_when: false
+
+    - name: 安裝 Helm
+      shell: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      args:
+        creates: /usr/local/bin/helm
+
+    - name: 加入 Elastic Helm repo
+      shell: helm repo add elastic https://helm.elastic.co
+      args:
+        creates: /home/{{ ansible_user }}/.cache/helm/repository/elastic-index.yaml
+      become: false
+
+    - name: 更新 Helm repo
+      shell: helm repo update
+      become: false
+
+- name: 🟡 安裝 K3s agents 並加入 cluster
+  hosts: k3s_worker
+  become: true
+  gather_facts: false
+  vars:
+    k3s_url: "https://{{ hostvars[groups['k3s_master'][0]].ansible_host }}:6443"
+  tasks:
+    - name: 設定 agent 用的 K3S_TOKEN
+      set_fact:
+        k3s_token: "{{ hostvars['k3s_master'].k3s_token }}"
+
+    - name: 安裝 K3s agent 並加入 master
+      shell: |
+        curl -sfL https://get.k3s.io | K3S_URL={{ k3s_url }} K3S_TOKEN={{ k3s_token }} sh -

@@ -1,0 +1,104 @@
+# Data 節點配置文件
+# 專門用於資料儲存和查詢的節點
+
+---
+# 叢集配置
+clusterName: "twcc-cluster"
+nodeGroup: "data"
+
+# 連接到 Master 服務
+masterService: "twcc-cluster-master"
+
+# 節點角色配置 - 純 Data 節點
+roles:
+  - data
+  - data_content
+  - data_hot
+  - data_warm
+
+# Data 節點數量 (基於您的 elk_worker 群組)
+replicas: 1
+minimumMasterNodes: 1
+
+# Elasticsearch 版本
+esMajorVersion: "8"
+
+# 叢集配置
+esConfig:
+  elasticsearch.yml: |
+    cluster.name: "twcc-cluster"
+    discovery.seed_hosts:
+      - "twcc-cluster-master-headless"
+    node.name: "${HOSTNAME}"
+    network.host: 0.0.0.0
+    http.port: 9200
+    transport.port: 9300
+    
+    # Data 節點特化設定
+    node.data: true
+    node.master: false
+    node.ingest: false
+    
+    # 效能調整
+    bootstrap.memory_lock: false
+    indices.memory.index_buffer_size: 40%
+    indices.queries.cache.size: 20%
+    indices.fielddata.cache.size: 30%
+    
+    # 安全設定
+    xpack.security.enabled: true
+    xpack.security.transport.ssl.enabled: true
+    xpack.security.transport.ssl.verification_mode: certificate
+    xpack.security.transport.ssl.keystore.path: /usr/share/elasticsearch/config/certs/elastic-certificates.p12
+    xpack.security.transport.ssl.truststore.path: /usr/share/elasticsearch/config/certs/elastic-certificates.p12
+
+# 憑證設定
+createCert: true
+
+# JVM 設定 - Data 節點需要更多記憶體
+esJavaOpts: "-Xmx2g -Xms2g"
+
+# 資源配置 - Data 節點需要更多資源
+resources:
+  requests:
+    cpu: "1000m"
+    memory: "3Gi"
+  limits:
+    cpu: "2000m"
+    memory: "3Gi"
+
+# 儲存配置 - Data 節點需要更多儲存空間
+persistence:
+  enabled: true
+  size: 20Gi
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+
+# Pod 反親和性
+antiAffinity: "soft"
+
+# 節點選擇器 - 部署到 elk_worker 群組節點
+nodeSelector:
+  elk-role: "worker"
+
+# 容忍度設定
+tolerations: []
+
+# Pod 註解
+podAnnotations:
+  cluster-role: "data"
+  
+# 服務配置
+service:
+  type: ClusterIP
+  httpPort: 9200
+  transportPort: 9300
+
+# 入口配置
+ingress:
+  enabled: false
+
+# 監控配置
+monitoring:
+  enabled: true
