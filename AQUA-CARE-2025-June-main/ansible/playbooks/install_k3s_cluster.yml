@@ -1,6 +1,6 @@
 ---
 - name: 🟢 安裝 K3s master 並準備 kubeconfig 與 Helm
-  hosts: k3s_master
+  hosts: all[0] # 使用第一台機器作為 master
   become: true
   gather_facts: false
   vars:
@@ -18,10 +18,9 @@
     - name: 設定 token fact 給 agent 使用
       add_host:
         name: k3s_master
-        ansible_host: "{{ inventory_hostname }}"
+        ansible_host: "{{ ansible_host }}"
         k3s_token: "{{ node_token.stdout }}"
         ansible_user: "{{ ansible_user }}"
-        ansible_ssh_private_key_file: "{{ ansible_ssh_private_key_file | default(omit) }}"
 
     - name: 建立 ~/.k3s 目錄
       become: false
@@ -90,10 +89,11 @@
       become: false
 
 - name: 🟡 安裝 K3s agents 並加入 cluster
-  hosts: k3s_worker
+  hosts: all[1:] # 使用第二台和第三台機器作為 worker
   become: true
   gather_facts: false
   vars:
+    ansible_user: ubuntu
     k3s_url: "https://{{ hostvars['k3s_master'].ansible_host }}:6443"
   tasks:
     - name: 🔍 顯示 master IP 與 token

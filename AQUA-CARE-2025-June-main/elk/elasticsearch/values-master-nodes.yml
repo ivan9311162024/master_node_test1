@@ -13,7 +13,9 @@ masterService: "twcc-cluster-master"
 roles:
   - master
   - ingest
+  - ml
   - remote_cluster_client
+  - transform
 
 # Master 節點數量 (基於您的 elk_master 群組)
 replicas: 2
