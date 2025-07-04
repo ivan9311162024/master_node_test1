@@ -12,7 +12,7 @@
         creates: /usr/local/bin/k3s
 
     - name: 讀取 node-token
-      shell: cat /var/lib/rancher/k3s/server/node-token
+      shell: sudo cat /var/lib/rancher/k3s/server/node-token
       register: node_token
 
     - name: 設定 token fact 給 agent 使用
