@@ -17,10 +17,9 @@
 
     - name: 設定 token fact 給 agent 使用
       add_host:
-        name: k3s_master
-        ansible_host: "{{ ansible_host }}"
+        name: "{{ inventory_hostname }}"
         k3s_token: "{{ node_token.stdout }}"
-        ansible_user: "{{ ansible_user }}"
+        k3s_master_ip: "{{ ansible_host }}"
 
     - name: 建立 ~/.k3s 目錄
       become: false
@@ -94,15 +93,17 @@
   gather_facts: false
   vars:
     ansible_user: ubuntu
+    master_ip: "{{ groups['all'][0] }}"
+    master_token: "{{ hostvars[groups['all'][0]]['k3s_token'] }}"
   tasks:
     - name: 🔍 顯示 master IP 與 token
       debug:
-        msg: "Master Host: {{ hostvars['k3s_master'].ansible_host }}, Token: {{ hostvars['k3s_master'].k3s_token }}"
+        msg: "Master Host: {{ master_ip }}, Token: {{ master_token }}"
 
     - name: 設定 K3s URL 變數
       set_fact:
-        k3s_url: "https://{{ hostvars['k3s_master'].ansible_host }}:6443"
-        k3s_token: "{{ hostvars['k3s_master'].k3s_token }}"
+        k3s_url: "https://{{ master_ip }}:6443"
+        k3s_token: "{{ master_token }}"
 
     - name: Debug 檢查變數
       debug:
@@ -110,7 +111,7 @@
 
     - name: 檢查 master 節點連通性
       wait_for:
-        host: "{{ hostvars['k3s_master'].ansible_host }}"
+        host: "{{ master_ip }}"
         port: 6443
         timeout: 30
       delegate_to: localhost
