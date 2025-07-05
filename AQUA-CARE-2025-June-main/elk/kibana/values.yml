@@ -4,7 +4,7 @@ elasticsearchCertificateSecret: elasticsearch-master-certs
 elasticsearchCertificateAuthoritiesFile: ca.crt
 elasticsearchCredentialSecret: elasticsearch-master-credentials
 
-replicas: 1
+replicas: 2
 
 # Extra environment variables to append to this nodeGroup
 # This will be appended to the current 'env:' key. You can use any of the kubernetes env
@@ -117,7 +117,7 @@ extraInitContainers: []
 #   command: ['echo', 'hey']
 
 updateStrategy:
-  type: "Recreate"
+  type: "RollingUpdate" #滾動更新
 
 service:
   type: LoadBalancer

@@ -1,13 +1,14 @@
 ---
-replicas: 1
+replicas: 2
 
 # Allows you to add any config files in /usr/share/logstash/config/
 # such as logstash.yml and log4j2.properties
 #
 # Note that when overriding logstash.yml, `http.host: 0.0.0.0` should always be included
 # to make default probes work.
-logstashConfig: {}
-#  logstash.yml: |
+logstashConfig: 
+  logstash.yml: |
+    http.host: 0.0.0.0
 #    key:
 #      nestedkey: value
 #  log4j2.properties: |
