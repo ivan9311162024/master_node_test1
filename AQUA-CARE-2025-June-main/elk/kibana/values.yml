@@ -65,8 +65,9 @@ healthCheckPath: "/app/kibana"
 
 # Allows you to add any config files in /usr/share/kibana/config/
 # such as kibana.yml
-kibanaConfig: {}
-#   kibana.yml: |
+kibanaConfig: 
+    kibana.yml: |
+      server.publicBaseUrl: "https://192.168.211.31:5601" # <-- 請將 IP 位址替換為您 Kibana 服務實際可訪問的外部 IP
 #     key:
 #       nestedkey: value
 
